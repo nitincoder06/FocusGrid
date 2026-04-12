@@ -249,7 +249,7 @@ export async function getAnalyticsData() {
     hourlyData,
     entropyData,
     totalFocusMinutes,
-    burndown: { totalActual, remaining: 0 },
+    burndown: { totalEstimated: 0, totalActual, remaining: 0 },
   };
 }
 
@@ -325,7 +325,7 @@ export async function getPauseAnalytics(startDate?: Date, endDate?: Date) {
   });
 
   // Group by reason and calculate statistics
-  const reasonStats: Record<string, { count: number; totalDuration: number; sessions: number }> = {};
+  const reasonStats: Record<string, { count: number; totalDuration: number; sessions: Set<string> }> = {};
   const dailyStats: Record<string, { count: number; totalDuration: number; reasons: Record<string, number> }> = {};
 
   for (const log of pauseLogs) {
@@ -359,7 +359,7 @@ export async function getPauseAnalytics(startDate?: Date, endDate?: Date) {
     count: stats.count,
     totalDuration: stats.totalDuration,
     averageDuration: Math.round(stats.totalDuration / stats.count),
-    sessionsAffected: (stats.sessions as any).size,
+    sessionsAffected: stats.sessions.size,
   }));
 
   const totalPauses = pauseLogs.length;

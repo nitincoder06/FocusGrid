@@ -1,0 +1,174 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Auth Models (NextAuth) ───────────────────────────────────────────
+
+model User {
+  id                       String    @id @default(cuid())
+  name                     String?
+  email                    String    @unique
+  emailVerified            DateTime?
+  image                    String?
+  passwordHash             String?
+  dailyGoal                Int       @default(120)
+  minimumDailyFocusTime    Int       @default(120)
+
+  accounts          Account[]
+  sessions          AuthSession[]
+  subjects          Subject[]
+  focusSessions     FocusSession[]
+  pauseLogs         PauseLog[]
+  streakFreezes     StreakFreeze[]
+  focusTracking     DailyFocusTracking[] @relation("UserFocusTracking")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model AuthSession {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ─── Core Domain Models ──────────────────────────────────────────────
+
+model Subject {
+  id     String  @id @default(cuid())
+  name   String
+  color  String  @default("#6366f1")
+  icon   String?
+  userId String
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tasks         Task[]
+  focusSessions FocusSession[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, name])
+}
+
+model Task {
+  id          String  @id @default(cuid())
+  title       String
+  description String?
+  difficulty  String  @default("MEDIUM")
+  status      String  @default("TODO")
+  actualPomos Int     @default(0)
+  subjectId   String
+  parentId    String?
+
+  subject       Subject        @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  parent        Task?          @relation("TaskHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children      Task[]         @relation("TaskHierarchy")
+  focusSessions FocusSession[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model FocusSession {
+  id          String   @id @default(cuid())
+  type        String
+  startTime   DateTime @default(now())
+  endTime     DateTime?
+  duration    Int      @default(0)
+  isCompleted Boolean  @default(false)
+
+  userId    String
+  subjectId String?
+  taskId    String?
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subject Subject? @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  task    Task?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  pauseLogs PauseLog[]
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, startTime])
+  @@index([userId, createdAt])
+}
+
+model PauseLog {
+  id        String    @id @default(cuid())
+  reason    String
+  pausedAt  DateTime  @default(now())
+  resumedAt DateTime?
+  duration  Int?
+
+  sessionId String
+  userId    String
+
+  session FocusSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model StreakFreeze {
+  id      String   @id @default(cuid())
+  usedAt  DateTime @default(now())
+  forDate DateTime
+  userId  String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, forDate])
+}
+
+model DailyFocusTracking {
+  id              String   @id @default(cuid())
+  userId          String
+  date            DateTime
+  actualFocusTime Int      @default(0)
+  carryOverTime   Int      @default(0)
+  targetTime      Int
+  completed       Boolean  @default(false)
+  notificationSent Boolean @default(false)
+
+  user User @relation("UserFocusTracking", fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, date])
+  @@index([userId, date])
+}

@@ -333,6 +333,18 @@ export default function AnalyticsPage() {
                 </div>
               )}
 
+              {staleSubjects.length > 0 && (
+                <div className="mt-3 rounded-lg bg-destructive/5 p-3 text-xs text-destructive">
+                  ⚠ {staleSubjects.length} subject{staleSubjects.length > 1 ? "s" : ""} not studied
+                  in 3+ days: {staleSubjects.map((s) => s.name).join(", ")}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+      </div>
+
+      {/* Pause Analytics Section */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Pause Reasons Distribution */}
         <motion.div {...fadeUp} transition={{ delay: 0.5 }}>
@@ -355,7 +367,6 @@ export default function AnalyticsPage() {
                         cx="50%"
                         cy="50%"
                         outerRadius={80}
-                        label={({ reason, count }) => `${reason}: ${count}`}
                       >
                         {pauseStats.reasonStats.map((entry: any, index: number) => {
                           const colors = [
@@ -538,3 +549,6 @@ export default function AnalyticsPage() {
           </motion.div>
         )}
       </div>
+    </div>
+  );
+}
