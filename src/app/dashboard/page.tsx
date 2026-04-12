@@ -8,6 +8,7 @@ import { getHeatmapData, getAnalyticsData } from "@/actions/session-actions";
 import { getSubjects, getTasks } from "@/actions/data-actions";
 import { getTodayFocusProgress } from "@/actions/daily-focus-actions";
 import type { HeatmapDay } from "@/types";
+import { getDailyFocusSettings } from "@/actions/daily-focus-actions";
 import {
   Clock,
   Flame,
@@ -37,6 +38,7 @@ export default function DashboardPage() {
   const [subjects, setSubjects] = useState<{ id: string; name: string; color: string; _count: { tasks: number; focusSessions: number } }[]>([]);
   const [tasks, setTasks] = useState<{ id: string; title: string; status: string; estimatedPomos: number; actualPomos: number; subject: { name: string; color: string } }[]>([]);
   const [dailyProgress, setDailyProgress] = useState<any>(null);
+  const [dailySettings, setDailySettings] = useState<any>(null);
 
   useEffect(() => {
     const year = new Date().getFullYear();
@@ -45,6 +47,7 @@ export default function DashboardPage() {
     getSubjects().then((s) => setSubjects(s as typeof subjects));
     getTasks().then((t) => setTasks(t as typeof tasks));
     getTodayFocusProgress().then(setDailyProgress);
+    getDailyFocusSettings().then(setDailySettings);
   }, []);
 
   const totalHours = analytics
@@ -146,6 +149,41 @@ export default function DashboardPage() {
           </Card>
         ))}
       </motion.div>
+
+      {/* Daily Focus Target Card */}
+      {dailySettings && (
+        <motion.div {...fadeUp} transition={{ delay: 0.12 }}>
+          <Card className="glass-card border-border/30 bg-gradient-to-br from-primary/10 to-primary/5">
+            <CardContent className="flex items-center justify-between p-6">
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Daily Focus Target</p>
+                <p className="text-4xl font-bold tracking-tight mb-2">
+                  {Math.floor(dailySettings.minimumDailyFocusTime / 60)}h {dailySettings.minimumDailyFocusTime % 60}m
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Set in your preferences
+                </p>
+              </div>
+              <div className="text-right">
+                {dailyProgress ? (
+                  <div>
+                    <p className="text-2xl font-bold text-primary">
+                      {Math.min(100, Math.round((dailyProgress.actualFocusTime / dailyProgress.targetTime) * 100))}%
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      {dailyProgress.remainingTime > 0
+                        ? `${Math.floor(dailyProgress.remainingTime / 60)}h ${dailyProgress.remainingTime % 60}m left`
+                        : "✓ Completed!"}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Loading...</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
 
       {/* Daily Focus Progress */}
       {dailyProgress && (
