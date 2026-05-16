@@ -2,8 +2,10 @@
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { revalidatePath } from "next/cache";
 
 // Helper functions for date handling
+// Store sessions with the date string to match stored data
 function startOfDay(date: Date): Date {
   const d = new Date(date);
   d.setHours(0, 0, 0, 0);
@@ -46,23 +48,27 @@ export async function getTodayFocusProgress(): Promise<DailyFocusProgress | null
     }
 
     const userId = session.user.id;
-    const today = new Date();
-    const dayStart = startOfDay(today);
-    const dayEnd = endOfDay(today);
+    const now = new Date();
+    // Use UTC date for consistency with heatmap data (which uses toISOString().split("T")[0])
+    const today = now.toISOString().split("T")[0];
+    const dayStart = new Date(today + "T00:00:00Z");
+    const dayEnd = new Date(today + "T23:59:59.999Z");
 
     // Get or create today's tracking record
     let tracking = await prisma.dailyFocusTracking.findUnique({
       where: {
         userId_date: {
           userId,
-          date: dayStart,
+          date: new Date(today),
         },
       },
     });
 
     // If not exists, need to check yesterday for carry-over
     if (!tracking) {
-      const yesterday = addDays(dayStart, -1);
+      const yesterdayDate = new Date(dayStart);
+      yesterdayDate.setUTCDate(yesterdayDate.getUTCDate() - 1);
+      const yesterday = yesterdayDate;
       const yesterdayTracking = await prisma.dailyFocusTracking.findUnique({
         where: {
           userId_date: {
@@ -91,7 +97,7 @@ export async function getTodayFocusProgress(): Promise<DailyFocusProgress | null
       tracking = await prisma.dailyFocusTracking.create({
         data: {
           userId,
-          date: dayStart,
+          date: new Date(today),
           actualFocusTime: 0,
           carryOverTime,
           targetTime,
@@ -117,10 +123,13 @@ export async function getTodayFocusProgress(): Promise<DailyFocusProgress | null
       .filter((s) => s.isCompleted)
       .reduce((sum, s) => sum + s.duration, 0);
 
-    // Update the tracking record with actual time
+    // Update the tracking record with actual time and mark completed if target reached
     const updated = await prisma.dailyFocusTracking.update({
       where: { id: tracking.id },
-      data: { actualFocusTime },
+      data: { 
+        actualFocusTime,
+        completed: actualFocusTime >= tracking.targetTime,
+      },
     });
 
     const remainingTime = Math.max(0, updated.targetTime - actualFocusTime);
@@ -176,11 +185,44 @@ export async function updateMinimumDailyFocusTime(minutes: number) {
       throw new Error("Minimum daily focus time must be between 15 and 480 minutes");
     }
 
+    const userId = session.user.id;
+
+    // First update the user's minimum
     const updated = await prisma.user.update({
-      where: { id: session.user.id },
+      where: { id: userId },
       data: { minimumDailyFocusTime: minutes },
       select: { minimumDailyFocusTime: true },
     });
+
+    // Also update today's tracking if it exists and goal wasn't completed yet
+    const now = new Date();
+    const today = now.toISOString().split("T")[0];
+    const todayDate = new Date(today);
+
+    const todayTracking = await prisma.dailyFocusTracking.findUnique({
+      where: {
+        userId_date: {
+          userId,
+          date: todayDate,
+        },
+      },
+    });
+
+    if (todayTracking && !todayTracking.completed) {
+      // Update today's target to the new minimum value
+      await prisma.dailyFocusTracking.update({
+        where: { id: todayTracking.id },
+        data: {
+          targetTime: minutes,
+          // Recalculate if now completed
+          completed: todayTracking.actualFocusTime >= minutes,
+        },
+      });
+    }
+
+    // Invalidate cache on both dashboard and settings pages
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/settings");
 
     return updated;
   } catch (error) {
@@ -242,12 +284,15 @@ export async function markNotificationSent() {
     const session = await auth();
     if (!session?.user?.id) return false;
 
-    const today = startOfDay(new Date());
+    const now = new Date();
+    const today = now.toISOString().split("T")[0];
+    const todayDate = new Date(today);
+    
     await prisma.dailyFocusTracking.update({
       where: {
         userId_date: {
           userId: session.user.id,
-          date: today,
+          date: todayDate,
         },
       },
       data: { notificationSent: true },

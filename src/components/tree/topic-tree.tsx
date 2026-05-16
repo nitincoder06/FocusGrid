@@ -105,7 +105,7 @@ export function TopicTree({
 
               {/* Context Menu */}
               <DropdownMenu>
-                <DropdownMenuTrigger asChild>
+                <DropdownMenuTrigger>
                   <Button
                     variant="ghost"
                     size="sm"

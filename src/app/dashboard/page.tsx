@@ -40,15 +40,80 @@ export default function DashboardPage() {
   const [tasks, setTasks] = useState<any>([]);
   const [dailyProgress, setDailyProgress] = useState<any>(null);
   const [dailySettings, setDailySettings] = useState<any>(null);
+  const [isPolling, setIsPolling] = useState(false);
 
+  // Initial data load
   useEffect(() => {
-    const year = new Date().getFullYear();
-    getHeatmapData(year).then(setHeatmapData);
-    getAnalyticsData().then(setAnalytics);
-    getSubjects().then((s: any) => setSubjects(s));
-    getTasks().then((t: any) => setTasks(t));
-    getTodayFocusProgress().then(setDailyProgress);
-    getDailyFocusSettings().then(setDailySettings);
+    const fetchAllData = async () => {
+      const year = new Date().getFullYear();
+      const [hmData, analData, subs, tsks, dailyProg, dailySet] = await Promise.all([
+        getHeatmapData(year),
+        getAnalyticsData(),
+        getSubjects(),
+        getTasks(),
+        getTodayFocusProgress(),
+        getDailyFocusSettings(),
+      ]);
+      setHeatmapData(hmData);
+      setAnalytics(analData);
+      setSubjects(subs);
+      setTasks(tsks);
+      setDailyProgress(dailyProg);
+      setDailySettings(dailySet);
+    };
+
+    fetchAllData();
+  }, []);
+
+  // Refetch settings whenever page becomes visible (handles settings change)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        // Page became visible - refetch settings in case they changed
+        getDailyFocusSettings().then((settings) => {
+          if (settings) setDailySettings(settings);
+        });
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, []);
+
+  // Real-time polling for daily progress (every 5 seconds when timer is active)
+  useEffect(() => {
+    const checkTimerActive = () => {
+      if (typeof window === "undefined") return false;
+      try {
+        const stored = localStorage.getItem("focusgrid-timer");
+        if (stored) {
+          const data = JSON.parse(stored);
+          return data.state === "running" || data.state === "paused";
+        }
+      } catch {
+        return false;
+      }
+      return false;
+    };
+
+    if (!checkTimerActive()) return;
+
+    const refetchData = async () => {
+      const [dailyProg, analData, dailySet] = await Promise.all([
+        getTodayFocusProgress(),
+        getAnalyticsData(),
+        getDailyFocusSettings(),
+      ]);
+      if (dailyProg) setDailyProgress(dailyProg);
+      if (analData) setAnalytics(analData);
+      if (dailySet) setDailySettings(dailySet);
+    };
+
+    refetchData();
+
+    const interval = setInterval(refetchData, 5000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const totalHours = analytics
@@ -58,17 +123,24 @@ export default function DashboardPage() {
     ? Math.floor(analytics.totalFocusMinutes / CINEMA_CREDIT_RATIO)
     : 0;
 
-  // Calculate streak
+  // Calculate streak - count consecutive days with activity, starting from yesterday backwards
   const today = new Date().toISOString().split("T")[0];
   let streak = 0;
   const sortedDays = [...heatmapData].reverse();
+  let foundActivity = false;
+
   for (const day of sortedDays) {
-    if (day.date > today) continue;
+    if (day.date >= today) continue; // Skip today and future dates - count from yesterday back
+
     if (day.total > 0 || day.isFrozen) {
+      // This day has activity - count it
       streak++;
-    } else {
+      foundActivity = true;
+    } else if (foundActivity) {
+      // We were counting and hit an empty day - break the streak
       break;
     }
+    // If not found activity yet and this day is empty, keep looking backwards
   }
 
   const activeTasks = tasks.filter((t: any) => t.status !== "COMPLETED");
@@ -99,6 +171,14 @@ export default function DashboardPage() {
             bg: "bg-chart-1/10",
           },
           {
+            label: "Today's Focus",
+            value: dailyProgress ? `${Math.floor(dailyProgress.actualFocusTime / 60)}h ${dailyProgress.actualFocusTime % 60}m` : "0m",
+            icon: Target,
+            accent: "text-blue-400",
+            bg: "bg-blue-400/10",
+            sub: "today",
+          },
+          {
             label: "Current Streak",
             value: `${streak}`,
             icon: Flame,
@@ -113,14 +193,6 @@ export default function DashboardPage() {
             accent: "text-emerald-400",
             bg: "bg-emerald-400/10",
             sub: `of ${tasks.length}`,
-          },
-          {
-            label: "Cinema Credits",
-            value: `${cinemaCredits}`,
-            icon: Zap,
-            accent: "text-amber-400",
-            bg: "bg-amber-400/10",
-            sub: "earned",
           },
         ].map((stat) => (
           <Card

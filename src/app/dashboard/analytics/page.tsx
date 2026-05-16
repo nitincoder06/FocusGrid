@@ -43,16 +43,62 @@ export default function AnalyticsPage() {
   } | null>(null);
   const [totalMinutes, setTotalMinutes] = useState(0);
   const [pauseStats, setPauseStats] = useState<any>(null);
+  const [isPolling, setIsPolling] = useState(false);
 
+  // Initial data load
   useEffect(() => {
-    getAnalyticsData().then((data) => {
-      setRadarData(data.radarData);
-      setHourlyData(data.hourlyData);
-      setEntropyData(data.entropyData);
-      setBurndown(data.burndown);
-      setTotalMinutes(data.totalFocusMinutes);
-    });
-    getPauseAnalytics().then(setPauseStats);
+    const fetchAllData = async () => {
+      const [analData, pauseData] = await Promise.all([
+        getAnalyticsData(),
+        getPauseAnalytics(),
+      ]);
+      setRadarData(analData.radarData);
+      setHourlyData(analData.hourlyData);
+      setEntropyData(analData.entropyData);
+      setBurndown(analData.burndown);
+      setTotalMinutes(analData.totalFocusMinutes);
+      setPauseStats(pauseData);
+    };
+
+    fetchAllData();
+  }, []);
+
+  // Real-time polling for analytics data (every 5 seconds when timer is active)
+  useEffect(() => {
+    const checkTimerActive = () => {
+      if (typeof window === "undefined") return false;
+      try {
+        const stored = localStorage.getItem("focusgrid-timer");
+        if (stored) {
+          const data = JSON.parse(stored);
+          return data.state === "running" || data.state === "paused";
+        }
+      } catch {
+        return false;
+      }
+      return false;
+    };
+
+    if (!checkTimerActive()) return;
+
+    const refetchData = async () => {
+      const [analData, pauseData] = await Promise.all([
+        getAnalyticsData(),
+        getPauseAnalytics(),
+      ]);
+      setRadarData(analData.radarData);
+      setHourlyData(analData.hourlyData);
+      setEntropyData(analData.entropyData);
+      setBurndown(analData.burndown);
+      setTotalMinutes(analData.totalFocusMinutes);
+      setPauseStats(pauseData);
+    };
+
+    refetchData();
+
+    const interval = setInterval(refetchData, 5000);
+
+    return () => clearInterval(interval);
   }, []);
 
   // Format hour label
@@ -410,7 +456,7 @@ export default function AnalyticsPage() {
                         <div className="text-right">
                           <p className="font-semibold">{stat.count}x</p>
                           <p className="text-muted-foreground">
-                            {stat.totalDuration}m total
+                            {Math.floor(stat.totalDuration / 60)}m total
                           </p>
                         </div>
                       </div>
@@ -447,7 +493,7 @@ export default function AnalyticsPage() {
                       <p className="text-xs text-muted-foreground mb-1">
                         Total Time Paused
                       </p>
-                      <p className="text-3xl font-bold">{pauseStats.totalPauseTime}m</p>
+                      <p className="text-3xl font-bold">{Math.floor(pauseStats.totalPauseTime / 60)}m</p>
                     </div>
                   </div>
 

@@ -12,6 +12,8 @@ import { useState } from "react";
 export function FlowTimer() {
   const store = useTimerStore();
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastVisibleTimeRef = useRef<number>(Date.now());
+  const sessionStartTimeRef = useRef<number | null>(null); // Track actual start time
   const [showPauseModal, setShowPauseModal] = useState(false);
 
   const {
@@ -35,15 +37,27 @@ export function FlowTimer() {
         .toString()
         .padStart(2, "0")}`;
 
-  // Timer tick
+  // Simple, reliable timer - just tick once per second
   useEffect(() => {
+    console.log("Timer effect running, state:", state);
+    
     if (state === "running") {
+      console.log("Starting interval");
       intervalRef.current = setInterval(() => {
         store.tick();
       }, 1000);
+    } else {
+      console.log("Clearing interval, state:", state);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
     }
+
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
     };
   }, [state, store]);
 
@@ -53,33 +67,70 @@ export function FlowTimer() {
   }, []);
 
   const handleStart = useCallback(async () => {
-    const result = await startSession({
-      type: "FLOW",
-      subjectId: activeSubjectId || undefined,
-      taskId: activeTaskId || undefined,
-    });
-    if (result.success && result.session) {
-      store.setActiveSessionId(result.session.id);
+    try {
+      const result = await startSession({
+        type: "FLOW",
+        subjectId: activeSubjectId || undefined,
+        taskId: activeTaskId || undefined,
+      });
+      if (result.success && result.session) {
+        store.setActiveSessionId(result.session.id);
+      }
+      store.start();
+    } catch (error) {
+      console.error("Error starting session:", error);
     }
-    store.start();
   }, [store, activeSubjectId, activeTaskId]);
 
   const handlePause = useCallback(() => {
-    store.pause();
-    setShowPauseModal(true);
+    try {
+      console.log("Pause button clicked");
+      store.pause();
+      setShowPauseModal(true);
+      console.log("Timer paused, pause modal should open");
+    } catch (error) {
+      console.error("Error pausing session:", error);
+    }
   }, [store]);
 
   const handleResume = useCallback(() => {
-    store.resume();
+    try {
+      console.log("Resume button clicked");
+      store.resume();
+      console.log("Timer resumed");
+    } catch (error) {
+      console.error("Error resuming session:", error);
+    }
   }, [store]);
 
   const handleComplete = useCallback(async () => {
-    if (activeSessionId) {
-      const focusMinutes = Math.floor(elapsed / 60);
-      await completeSession(activeSessionId, Math.max(focusMinutes, 1));
+    try {
+      if (activeSessionId) {
+        // Include both totalFocusTime and current elapsed time
+        const totalMinutes = Math.floor((store.totalFocusTime + elapsed) / 60);
+        await completeSession(activeSessionId, Math.max(totalMinutes, 1));
+      }
+      store.reset();
+    } catch (error) {
+      console.error("Error completing session:", error);
     }
-    store.reset();
   }, [store, activeSessionId, elapsed]);
+
+  // Save session if user leaves page or navigates away
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if ((state === "running" || state === "paused") && activeSessionId && (elapsed > 0 || store.totalFocusTime > 0)) {
+        const totalMinutes = Math.floor((store.totalFocusTime + elapsed) / 60);
+        const payload = new FormData();
+        payload.append("sessionId", activeSessionId);
+        payload.append("duration", String(Math.max(1, totalMinutes)));
+        navigator.sendBeacon("/api/timer/complete", payload);
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [state, activeSessionId, elapsed, store.totalFocusTime]);
 
   return (
     <div className="flex flex-col items-center justify-center">
@@ -125,7 +176,11 @@ export function FlowTimer() {
       </motion.div>
 
       {/* Controls */}
-      <div className="mt-10 flex items-center gap-3">
+      <div className="mt-10 flex flex-col items-center gap-4">
+        {/* Debug: Show current state */}
+        <p className="text-xs text-muted-foreground/50">State: {state}</p>
+        
+        <div className="flex items-center gap-3">
         {state === "idle" && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -191,6 +246,7 @@ export function FlowTimer() {
             </Button>
           </motion.div>
         )}
+        </div>
       </div>
 
       {/* Zen Mode Toggle */}

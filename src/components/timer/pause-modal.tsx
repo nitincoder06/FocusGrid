@@ -29,8 +29,14 @@ export function PauseModal({ open, onClose }: PauseModalProps) {
     if (!selected || !activeSessionId) return;
     setLoading(true);
 
-    await logPause(activeSessionId, selected);
-
+    try {
+      console.log("Logging pause reason:", selected);
+      await logPause(activeSessionId, selected);
+      console.log("Pause reason logged successfully");
+    } catch (error) {
+      console.error("Error logging pause:", error);
+    }
+    
     setLoading(false);
     setSelected(null);
     onClose();

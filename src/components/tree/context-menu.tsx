@@ -30,16 +30,15 @@ export function TaskContextMenu({
 }: TaskContextMenuProps) {
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild onContextMenu={(e) => e.preventDefault()}>
-        <div
-          onContextMenu={(e) => {
-            e.preventDefault();
-            // Trigger dropdown menu on right-click
-          }}
-        >
+      <div
+        onContextMenu={(e) => {
+          e.preventDefault();
+        }}
+      >
+        <DropdownMenuTrigger>
           {children}
-        </div>
-      </DropdownMenuTrigger>
+        </DropdownMenuTrigger>
+      </div>
       <DropdownMenuContent align="end" className="w-48">
         <DropdownMenuItem
           onClick={() => actions.onStartFocus(task)}

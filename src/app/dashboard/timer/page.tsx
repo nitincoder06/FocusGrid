@@ -28,7 +28,6 @@ interface Task {
   title: string;
   subjectId: string;
   difficulty: string;
-  estimatedPomos: number;
   actualPomos: number;
 }
 

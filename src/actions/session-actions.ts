@@ -52,6 +52,7 @@ export async function completeSession(
   }
 
   revalidatePath("/dashboard");
+  revalidatePath("/dashboard/analytics");
   return { success: true, session };
 }
 

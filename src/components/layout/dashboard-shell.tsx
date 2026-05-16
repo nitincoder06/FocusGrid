@@ -4,12 +4,10 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { useTimerStore } from "@/hooks/use-timer";
-import { useDailyCheck } from "@/hooks/use-daily-check";
 import { AnimatePresence, motion } from "framer-motion";
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const zenMode = useTimerStore((s) => s.zenMode);
-  useDailyCheck(); // Initialize daily check on mount
 
   return (
     <div className="flex min-h-screen">

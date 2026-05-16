@@ -12,6 +12,8 @@ import { useState } from "react";
 export function PomoTimer() {
   const store = useTimerStore();
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastVisibleTimeRef = useRef<number>(Date.now());
+  const sessionStartTimeRef = useRef<number | null>(null); // Track actual start time
   const [showPauseModal, setShowPauseModal] = useState(false);
 
   const {
@@ -48,15 +50,25 @@ export function PomoTimer() {
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (progress / 100) * circumference;
 
-  // Timer tick
+  // Simple, reliable timer - just tick once per second
   useEffect(() => {
     if (state === "running" || state === "break") {
+      console.log("Pomo: Starting interval for", state);
       intervalRef.current = setInterval(() => {
         store.tick();
       }, 1000);
+    } else {
+      console.log("Pomo: Clearing interval, state:", state);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
     }
+
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
     };
   }, [state, store]);
 
@@ -98,10 +110,13 @@ export function PomoTimer() {
 
   // Save session if user leaves page or navigates away
   useEffect(() => {
-    const handleBeforeUnload = async () => {
+    const handleBeforeUnload = () => {
       if ((state === "running" || state === "paused") && activeSessionId && elapsed > 0) {
         const focusMinutes = Math.floor((store.totalFocusTime + elapsed) / 60);
-        await completeSession(activeSessionId, Math.max(1, focusMinutes));
+        const payload = new FormData();
+        payload.append("sessionId", activeSessionId);
+        payload.append("duration", String(Math.max(1, focusMinutes)));
+        navigator.sendBeacon("/api/timer/complete", payload);
       }
     };
 
