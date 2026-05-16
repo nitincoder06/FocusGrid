@@ -1,36 +1,93 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# FocusGrid - Productivity & Focus Management App
 
-## Getting Started
+A full-stack web application designed to help users maintain focus consistency, track study sessions, and achieve daily productivity goals through gamification and real-time analytics.
 
-First, run the development server:
+## 📋 Project Overview
 
+FocusGrid combines dual-timer modes (Flow & Pomodoro), session tracking, and a gamified streak system to help users stay consistent with their focus goals. Features include real-time progress updates, daily carry-over targets, detailed analytics, and a GitHub-style activity heatmap.
+
+## 🛠️ Tech Stack
+
+**Frontend:**
+- React 19.2.4
+- Next.js 16.2.3 (App Router)
+- TypeScript
+- Tailwind CSS 4
+- Framer Motion (animations)
+- Recharts (visualizations)
+- Zustand (state management)
+- shadcn/ui (components)
+
+**Backend:**
+- Next.js Server Actions
+- Prisma ORM 5.22.0
+- SQLite
+- NextAuth.js v5 (authentication)
+- bcryptjs (password hashing)
+- Nodemailer (emails)
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Node.js 18+ 
+- npm or yarn
+
+### Installation
+
+1. **Clone the repository:**
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone https://github.com/nitincoder06/FocusGrid.git
+cd FocusGrid
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. **Install dependencies:**
+```bash
+npm install
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+3. **Set up environment variables:**
+Create a `.env.local` file in the root directory:
+```env
+DATABASE_URL="file:./dev.db"
+NEXTAUTH_URL="http://localhost:3000"
+NEXTAUTH_SECRET="your-secret-key"
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+4. **Initialize database:**
+```bash
+npx prisma migrate dev
+```
 
-## Learn More
+5. **Run the development server:**
+```bash
+npm run dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+6. **Open in browser:**
+Navigate to [http://localhost:3000](http://localhost:3000)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 📱 Key Features
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- **Dual Timer Modes** - Flow (continuous) and Pomodoro (25min focus + 5min break)
+- **Session Tracking** - Track focus sessions with pause reasons and duration
+- **Daily Goals** - Set minimum daily focus time with carry-over to next day
+- **Streak System** - Build consistency streaks with freeze capability
+- **Analytics Dashboard** - Real-time progress, heatmap, and pause analysis
+- **Background Persistence** - Timer continues running when app is minimized
+- **Authentication** - Email/password registration and NextAuth integration
 
-## Deploy on Vercel
+## 📊 Database Schema
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Core models: User, FocusSession, PauseLog, DailyFocusTracking, Subject, Task, StreakFreeze
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 🔧 Build & Deploy
+
+**Build for production:**
+```bash
+npm run build
+npm start
+```
+
+## 📝 License
+
+This project is open source and available for educational purposes.
